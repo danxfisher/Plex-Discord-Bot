@@ -27,12 +27,12 @@ module.exports = function(client, keys) {
   var plexQuery = null;
   var plexOffset = 0; // default offset of 0
   var plexPageSize = 10; // default result size of 10
-
-  // dispatcher for playing audio ----------------------------------------------
+  var isPlaying = false;
+  
+  // plex vars for playing audio -----------------------------------------------
   var dispatcher = null;
   var voiceChannel = null;
   var conn = null;
-  var isPlaying = false;
 
   // when bot is ready
   client.on('ready', function() {
