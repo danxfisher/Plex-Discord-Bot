@@ -52,31 +52,45 @@ module.exports = function(client, keys) {
 
     // !play : bot will join voice channel and play song
     if (msg.startsWith('!play ')) {
-      plexQuery = msg.substring(msg.indexOf(' ')+1);
+      if (!dispatcher) {
+        plexQuery = msg.substring(msg.indexOf(' ')+1);
 
-      // if song request exists
-      if (plexQuery.length > 0) {
-        plexOffset = 0; // reset paging
-        findSong(plexQuery, plexOffset, plexPageSize, message);
+        // if song request exists
+        if (plexQuery.length > 0) {
+          plexOffset = 0; // reset paging
+          findSong(plexQuery, plexOffset, plexPageSize, message);
+        }
+        else {
+          message.reply('**Please enter a song title**');
+        }
       }
       else {
-        message.reply('**Please enter a song title**');
+        message.reply('**A song is already playing. Either use !stop or wait until song is finished.**');
       }
     }
 
     // !nextpage : get next page of songs if desired song not listed
     else if (msg.startsWith('!nextpage')) {
-      findSong(plexQuery, plexOffset, plexPageSize, message);
+      if (!dispatcher) {
+        findSong(plexQuery, plexOffset, plexPageSize, message);
+      }
+      else {
+        message.reply('**A song is already playing. Either use !stop or wait until song is finished.**');
+      }
     }
 
     // !playsong : play a song from the song list
     else if (msg.startsWith('!playsong')) {
-      var songNumber = msg.substring(msg.indexOf(' ')+1);
-      songNumber = parseInt(songNumber);
-      songNumber = songNumber - 1;
+      if (!dispatcher) {
+        var songNumber = msg.substring(msg.indexOf(' ')+1);
+        songNumber = parseInt(songNumber);
+        songNumber = songNumber - 1;
 
-      voiceChannel = message.member.voiceChannel;
-      playSong(songNumber, tracks, message);
+        playSong(songNumber, tracks, message);
+      }
+      else {
+        message.reply('**A song is already playing. Either use !stop or wait until song is finished.**');
+      }
     }
 
     // !stop : stops song if one is playing
@@ -84,8 +98,7 @@ module.exports = function(client, keys) {
       if (dispatcher) {
         dispatcher.end();
         dispatcher.on('end', () => {
-          connection.disconnect();
-          voiceChannel.leave();
+          stopSong();
         });
         message.reply('**Playback has been stopped.**');
       }
@@ -107,18 +120,21 @@ module.exports = function(client, keys) {
       else {
         artist = tracks[songNumber].grandparentTitle;
       }
+      if (voiceChannel) {
+        voiceChannel.join().then(function(connection) {
+          var url = PLEX_PLAY_START + key + PLEX_PLAY_END;
 
-      voiceChannel.join().then(function(connection) {
-        var url = PLEX_PLAY_START + key + PLEX_PLAY_END;
-
-        dispatcher = connection.playArbitraryInput(url).on('end', () => {
-          connection.disconnect();
-          voiceChannel.leave();
+          dispatcher = connection.playArbitraryInput(url).on('end', () => {
+            stopSong();
+          });
+          dispatcher.setVolume(0.2);
         });
-        dispatcher.setVolume(0.2);
-      });
 
-      message.reply('**♪ ♫ ♪ Playing: ' + artist + ' - ' + title + ' ♪ ♫ ♪**');
+        message.reply('**♪ ♫ ♪ Playing: ' + artist + ' - ' + title + ' ♪ ♫ ♪**');
+      }
+      else {
+        message.reply('**Please join a voice channel first before requesting a song.**');
+      }
     }
     else {
       message.reply('**Stop trying to break me.**');
@@ -138,7 +154,6 @@ module.exports = function(client, keys) {
       if (resultSize == 1 && offset == 0) {
         songKey = 0;
         // play song
-        voiceChannel = message.member.voiceChannel;
         playSong(songKey, tracks, message);
       }
       else if (resultSize > 1) {
@@ -161,5 +176,12 @@ module.exports = function(client, keys) {
     }, function (err) {
       console.log('narp');
     });
+  }
+
+  // stop a song from playing
+  function stopSong() {
+    connection.disconnect();
+    voiceChannel.leave();
+    dispatcher = null;
   }
 };
