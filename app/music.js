@@ -50,13 +50,17 @@ module.exports = function(client, keys) {
   client.on('message', function(message){
     var msg = message.content.toLowerCase();
 
-    // !play : bot will join voice channel and play song (currently defaulted to whatevr testMediaId is)
+    // !play : bot will join voice channel and play song
     if (msg.startsWith('!play ')) {
       plexQuery = msg.substring(msg.indexOf(' ')+1);
 
+      // if song request exists
       if (plexQuery.length > 0) {
         plexOffset = 0; // reset paging
         findSong(plexQuery, plexOffset, plexPageSize, message);
+      }
+      else {
+        message.reply('**Please enter a song title**');
       }
     }
 
@@ -65,7 +69,7 @@ module.exports = function(client, keys) {
       findSong(plexQuery, plexOffset, plexPageSize, message);
     }
 
-    // !playsong : play a song from the song list from !play
+    // !playsong : play a song from the song list
     else if (msg.startsWith('!playsong')) {
       var songNumber = msg.substring(msg.indexOf(' ')+1);
       songNumber = parseInt(songNumber);
@@ -91,7 +95,7 @@ module.exports = function(client, keys) {
     }
   });
 
-  // play song when provided index number, track, and message
+  // play song when provided with index number, track, and message
   function playSong(songNumber, tracks, message) {
     if (songNumber > -1){
       var key = tracks[songNumber].Media[0].Part[0].key;
