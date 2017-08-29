@@ -34,3 +34,8 @@ Install like any other Discord Bot.  This seems like a decent tutorial to get yo
 Then, in terminal/cmd prompt, navigate to this repository's directory and run: `node index.js`
 
 If you see any bugs or have any suggestions, use the issue tracker.  Thanks!
+
+## To do:
+
+* [ ] handle case where user types `!play` when another song is playing
+* [ ] make code look less shitty
