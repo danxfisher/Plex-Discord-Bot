@@ -24,10 +24,9 @@ module.exports = function(client, keys) {
 
   // plex variables ------------------------------------------------------------
   var tracks = null;
-  var plexTrackPage = 0;
   var plexQuery = null;
-  var plexOffset = 0;
-  var plexPageSize = 10;
+  var plexOffset = 0; // default offset of 0
+  var plexPageSize = 10; // default result size of 10
 
   // dispatcher for playing audio ----------------------------------------------
   var dispatcher = null;
@@ -51,7 +50,6 @@ module.exports = function(client, keys) {
   client.on('message', function(message){
     var msg = message.content.toLowerCase();
 
-    // PLEX ====================================================================
     // !play : bot will join voice channel and play song (currently defaulted to whatevr testMediaId is)
     if (msg.startsWith('!play ')) {
       plexQuery = msg.substring(msg.indexOf(' ')+1);
@@ -61,10 +59,12 @@ module.exports = function(client, keys) {
         findSong(plexQuery, plexOffset, plexPageSize, message);
       }
     }
+
     // !nextpage : get next page of songs if desired song not listed
     else if (msg.startsWith('!nextpage')) {
       findSong(plexQuery, plexOffset, plexPageSize, message);
     }
+
     // !playsong : play a song from the song list from !play
     else if (msg.startsWith('!playsong')) {
       var songNumber = msg.substring(msg.indexOf(' ')+1);
@@ -74,6 +74,7 @@ module.exports = function(client, keys) {
       voiceChannel = message.member.voiceChannel;
       playSong(songNumber, tracks, message);
     }
+
     // !stop : stops song if one is playing
     else if (msg.startsWith('!stop')) {
       if (dispatcher) {
@@ -90,8 +91,8 @@ module.exports = function(client, keys) {
     }
   });
 
+  // play song when provided index number, track, and message
   function playSong(songNumber, tracks, message) {
-
     if (songNumber > -1){
       var key = tracks[songNumber].Media[0].Part[0].key;
       var artist = '';
@@ -119,6 +120,8 @@ module.exports = function(client, keys) {
       message.reply('**Stop trying to break me.**');
     }
   }
+
+  // find song when provided with query string, offset, pagesize, and message
   function findSong(plexQuery, offset, pageSize, message) {
     plex.query('/search/?type=10&query=' + plexQuery + '&X-Plex-Container-Start=' + offset + '&X-Plex-Container-Size=' + pageSize).then(function(res) {
       tracks = res.MediaContainer.Metadata;
