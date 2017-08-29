@@ -31,6 +31,8 @@ module.exports = function(client, keys) {
   // dispatcher for playing audio ----------------------------------------------
   var dispatcher = null;
   var voiceChannel = null;
+  var conn = null;
+  var isPlaying = false;
 
   // when bot is ready
   client.on('ready', function() {
@@ -52,7 +54,7 @@ module.exports = function(client, keys) {
 
     // !play : bot will join voice channel and play song
     if (msg.startsWith('!play ')) {
-      if (!dispatcher) {
+      if (!isPlaying) {
         plexQuery = msg.substring(msg.indexOf(' ')+1);
 
         // if song request exists
@@ -71,7 +73,7 @@ module.exports = function(client, keys) {
 
     // !nextpage : get next page of songs if desired song not listed
     else if (msg.startsWith('!nextpage')) {
-      if (!dispatcher) {
+      if (!isPlaying) {
         findSong(plexQuery, plexOffset, plexPageSize, message);
       }
       else {
@@ -81,7 +83,7 @@ module.exports = function(client, keys) {
 
     // !playsong : play a song from the song list
     else if (msg.startsWith('!playsong')) {
-      if (!dispatcher) {
+      if (!isPlaying) {
         var songNumber = msg.substring(msg.indexOf(' ')+1);
         songNumber = parseInt(songNumber);
         songNumber = songNumber - 1;
@@ -95,11 +97,12 @@ module.exports = function(client, keys) {
 
     // !stop : stops song if one is playing
     else if (msg.startsWith('!stop')) {
-      if (dispatcher) {
+      if (isPlaying) {
         dispatcher.end();
         dispatcher.on('end', () => {
           stopSong();
         });
+
         message.reply('**Playback has been stopped.**');
       }
       else {
@@ -120,9 +123,15 @@ module.exports = function(client, keys) {
       else {
         artist = tracks[songNumber].grandparentTitle;
       }
+
+      voiceChannel = message.member.voiceChannel;
+
       if (voiceChannel) {
         voiceChannel.join().then(function(connection) {
+          conn = connection;
           var url = PLEX_PLAY_START + key + PLEX_PLAY_END;
+
+          isPlaying = true;
 
           dispatcher = connection.playArbitraryInput(url).on('end', () => {
             stopSong();
@@ -133,7 +142,7 @@ module.exports = function(client, keys) {
         message.reply('**♪ ♫ ♪ Playing: ' + artist + ' - ' + title + ' ♪ ♫ ♪**');
       }
       else {
-        message.reply('**Please join a voice channel first before requesting a song.**');
+        message.reply('**Please join a voice channel first before requesting a song.**')
       }
     }
     else {
@@ -180,8 +189,8 @@ module.exports = function(client, keys) {
 
   // stop a song from playing
   function stopSong() {
-    connection.disconnect();
+    conn.disconnect();
     voiceChannel.leave();
-    dispatcher = null;
+    isPlaying = false;
   }
 };
