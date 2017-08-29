@@ -86,7 +86,7 @@ module.exports = function(client, keys) {
         message.reply('**Playback has been stopped.**');
       }
       else {
-        message.reply('**Ain\'t nothing playin\', dawg.**');
+        message.reply('**Nothing currently playing.**');
       }
     }
   });
