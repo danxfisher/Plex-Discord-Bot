@@ -1,0 +1,23 @@
+{
+  "name": "plexbot",
+  "version": "1.0.0",
+  "description": "a plex bot for discord",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "danxfisher",
+  "license": "ISC",
+  "dependencies": {
+    "bufferutil": "^3.0.2",
+    "discord.js": "^11.1.0",
+    "erlpack": "github:hammerandchisel/erlpack",
+    "ffmpeg-binaries": "^3.2.2-3",
+    "libsodium-wrappers": "^0.5.2",
+    "node-opus": "^0.2.6",
+    "opusscript": "0.0.3",
+    "plex-api": "^5.1.0",
+    "request": "^2.81.0",
+    "uws": "^8.14.1"
+  }
+}
