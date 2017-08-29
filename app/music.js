@@ -145,7 +145,7 @@ module.exports = function(client, keys) {
           messageLines += (t+1) + ' - ' + artist + ' - ' + tracks[t].title + '\n';
         }
         messageLines += '\n**Use !playsong (number) to play your song.**';
-        messageLines += '\n**Use !nextpage if the song you want isn\t listed**';
+        messageLines += '\n**Use !nextpage if the song you want isn\'t listed**';
         message.reply(messageLines);
       }
       else {
