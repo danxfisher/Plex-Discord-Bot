@@ -149,7 +149,6 @@ module.exports = function(client, keys) {
         message.reply(messageLines);
       }
       else {
-        console.log('cant find anything');
         message.reply('** I can\'t find a song with that title.**');
       }
     }, function (err) {
