@@ -31,4 +31,6 @@ module.exports = {
 
 Install like any other Discord Bot.  This seems like a decent tutorial to get you going: https://www.youtube.com/watch?v=2YO96GFBSLw
 
+Then, in terminal/cmd prompt, navigate to this repository's directory and run: `node index.js`
+
 If you see any bugs or have any suggestions, use the issue tracker.  Thanks!
