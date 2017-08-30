@@ -1,6 +1,6 @@
 module.exports = {
   'hostname'    : 'PLEX_LOCAL_IP',
-  'port'        : 'PLEX_LOCAL_PORT'
+  'port'        : 'PLEX_LOCAL_PORT',
   'username'    : 'PLEX_USERNAME',
   'password'    : 'PLEX_PASSWORD',
   'token'       : 'PLEX_TOKEN',

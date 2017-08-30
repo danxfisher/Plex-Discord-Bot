@@ -38,8 +38,19 @@ Then, in terminal/cmd prompt, navigate to this repository's directory and run: `
 
 If you see any bugs or have any suggestions, use the issue tracker.  Thanks!
 
-## To do:
+## To Do:
+* [ ] make playlists
+* [ ] move to next gen javascript w/babel
+* [ ] use uri/headers for plex.query as shown here:
 
+```
+return api.query({ uri: '/', extraHeaders: { 'X-TEST-HEADER': 'X-TEST-HEADER-VAL' } }).then(result => {
+    expect(result).to.be.an('object');
+    nockServer.done();
+});
+```
+
+## Completed:
 * [x] handle case where user types `!play` when another song is playing
 * [x] make code look less shitty
-* [ ] make playlists
+* [x] fix !stop again
