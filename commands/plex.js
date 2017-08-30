@@ -1,7 +1,7 @@
 // plex commands ---------------------------------------------------------------
 var commands = {
   'test' : {
-    usgae: '',
+    usage: '',
     description: 'test plex at bot start up to make sure everything is working',
     process: function() {
       plex.query('/').then(function(result) {
