@@ -42,3 +42,4 @@ If you see any bugs or have any suggestions, use the issue tracker.  Thanks!
 
 * [x] handle case where user types `!play` when another song is playing
 * [x] make code look less shitty
+* [ ] make playlists
