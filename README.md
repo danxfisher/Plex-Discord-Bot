@@ -40,6 +40,7 @@ If you see any bugs or have any suggestions, use the issue tracker.  Thanks!
 
 ## To Do:
 * [ ] make playlists
+* [ ] Make !nextpage count continue to increase rather than restarting each page
 * [ ] move to next gen javascript w/babel
 * [ ] use uri/headers for plex.query as shown here:
 
