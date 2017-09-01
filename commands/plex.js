@@ -1,68 +1,3 @@
-// plex commands ---------------------------------------------------------------
-var commands = {
-  'test' : {
-    usage: '',
-    description: 'test plex at bot start up to make sure everything is working',
-    process: function() {
-      plex.query('/').then(function(result) {
-        console.log('name: ' + result.MediaContainer.friendlyName);
-        console.log('v: ' + result.MediaContainer.version);
-      }, function(err) {
-        console.log('ya done fucked up');
-      });
-    }
-  },
-  'play' : {
-    usage: '',
-    description: 'bot will join voice channel and play song if one song available.  if more than one, bot will return a list to choose from',
-    process: function(client, message, query) {
-      // if song request exists
-      if (query.length > 0) {
-        plexOffset = 0; // reset paging
-        findSong(query, plexOffset, plexPageSize, message);
-      }
-      else {
-        message.reply('**Please enter a song title**');
-      }
-    }
-  },
-  'nextpage' : {
-    usage: '',
-    description: 'get next page of songs if desired song not listed',
-    process: function(client, message, query) {
-      findSong(query, plexOffset, plexPageSize, message);
-    }
-  },
-  'playsong' : {
-    usage: '',
-    description: 'play a song from the generated song list',
-    process: function(client, message, query) {
-      var songNumber = query;
-      songNumber = parseInt(songNumber);
-      songNumber = songNumber - 1;
-
-      playSong(songNumber, tracks, message);
-    }
-  },
-  'stop' : {
-    usage: '',
-    description: 'stops song if one is playing',
-    process: function(client, message) {
-      if (isPlaying) {
-        dispatcher.end();
-        dispatcher.on('end', () => {
-          stopSong();
-        });
-
-        message.reply('**Playback has been stopped.**');
-      }
-      else {
-        message.reply('**Nothing currently playing.**');
-      }
-    }
-  },
-};
-
 // plex api module -----------------------------------------------------------
 var PlexAPI = require('plex-api');
 
@@ -89,7 +24,7 @@ var plex = new PlexAPI({
 });
 
 // plex constants ------------------------------------------------------------
-const PLEX_PLAY_START = 'http://' + plexConfig.hostname + plexConfig.port;
+const PLEX_PLAY_START = 'http://' + plexConfig.hostname + ':32400';
 const PLEX_PLAY_END = '?X-Plex-Token=' + plexConfig.token;
 
 // plex variables ------------------------------------------------------------
@@ -98,50 +33,14 @@ var plexQuery = null;
 var plexOffset = 0; // default offset of 0
 var plexPageSize = 10; // default result size of 10
 var isPlaying = false;
+var songQueue = []; // will be used for queueing songs
 
 // plex vars for playing audio -----------------------------------------------
 var dispatcher = null;
 var voiceChannel = null;
 var conn = null;
 
-// play song when provided with index number, track, and message
-function playSong(songNumber, tracks, message) {
-  if (songNumber > -1){
-    var key = tracks[songNumber].Media[0].Part[0].key;
-    var artist = '';
-    var title = tracks[songNumber].title;
-    if ('originalTitle' in tracks[songNumber]) {
-      artist = tracks[songNumber].originalTitle;
-    }
-    else {
-      artist = tracks[songNumber].grandparentTitle;
-    }
-
-    voiceChannel = message.member.voiceChannel;
-
-    if (voiceChannel) {
-      voiceChannel.join().then(function(connection) {
-        conn = connection;
-        var url = PLEX_PLAY_START + key + PLEX_PLAY_END;
-
-        isPlaying = true;
-
-        dispatcher = connection.playArbitraryInput(url).on('end', () => {
-          stopSong();
-        });
-        dispatcher.setVolume(0.2);
-      });
-
-      message.reply('**♪ ♫ ♪ Playing: ' + artist + ' - ' + title + ' ♪ ♫ ♪**');
-    }
-    else {
-      message.reply('**Please join a voice channel first before requesting a song.**')
-    }
-  }
-  else {
-    message.reply('**Stop trying to break me.**');
-  }
-}
+// flow: findSong -> addToQueue -> playSong
 
 // find song when provided with query string, offset, pagesize, and message
 function findSong(plexQuery, offset, pageSize, message) {
@@ -155,8 +54,8 @@ function findSong(plexQuery, offset, pageSize, message) {
 
     if (resultSize == 1 && offset == 0) {
       songKey = 0;
-      // play song
-      playSong(songKey, tracks, message);
+      // add song to queue
+      addToQueue(songKey, tracks, message);
     }
     else if (resultSize > 1) {
       for (var t = 0; t < tracks.length; t++) {
@@ -180,11 +79,219 @@ function findSong(plexQuery, offset, pageSize, message) {
   });
 }
 
+// not sure if ill need this
+function addToQueue(songNumber, tracks, message) {
+  if (songNumber > -1){
+    var key = tracks[songNumber].Media[0].Part[0].key;
+    var artist = '';
+    var title = tracks[songNumber].title;
+    if ('originalTitle' in tracks[songNumber]) {
+      artist = tracks[songNumber].originalTitle;
+    }
+    else {
+      artist = tracks[songNumber].grandparentTitle;
+    }
+
+    songQueue.push({'artist' : artist, 'title': title, 'key': key});
+    if (songQueue.length > 1) {
+      message.reply('**' + artist + ' - ' + title + ' has been added to the queue.**\n\n**Use !viewqueue to view the queue.**');
+    }
+
+    if (!isPlaying) {
+      playSong(message);
+    }
+
+  }
+  else {
+    message.reply('**Stop trying to break me.**');
+  }
+}
+
+// play song when provided with index number, track, and message
+function playSong(message) {
+  voiceChannel = message.member.voiceChannel;
+
+  if (voiceChannel) {
+    voiceChannel.join().then(function(connection) {
+      conn = connection;
+      var url = PLEX_PLAY_START + songQueue[0].key + PLEX_PLAY_END;
+
+      isPlaying = true;
+
+      dispatcher = connection.playArbitraryInput(url).on('end', () => {
+        songQueue.shift();
+        if (songQueue.length > 0) {
+          playSong(message);
+        }
+        else {
+          stopSong(message);
+        }
+      });
+      dispatcher.setVolume(0.2);
+    });
+
+    // probbaly just change this to channel alert, not reply
+    message.channel.send('**♪ ♫ ♪ Playing: ' + songQueue[0].artist + ' - ' + songQueue[0].title + ' ♪ ♫ ♪**');
+  }
+  else {
+    message.reply('**Please join a voice channel first before requesting a song.**')
+  }
+}
+
 // stop a song from playing
-function stopSong() {
+function stopSong(message) {
   conn.disconnect();
   voiceChannel.leave();
   isPlaying = false;
+  message.reply('**All playback has been stopped.**');
 }
+
+
+// plex commands ---------------------------------------------------------------
+var commands = {
+  'plexTest' : {
+    usage: '',
+    description: 'test plex at bot start up to make sure everything is working',
+    process: function() {
+      plex.query('/').then(function(result) {
+        console.log('name: ' + result.MediaContainer.friendlyName);
+        console.log('v: ' + result.MediaContainer.version);
+      }, function(err) {
+        console.log('ya done fucked up');
+      });
+    }
+  },
+  'clearqueue' : {
+    usage: '',
+    description: 'clears all songs in queue',
+    process: function(client, message) {
+      if (songQueue.length > 0) {
+        songQueue = [];
+
+        message.reply('**The queue has been cleared.**');
+        stopSong(message);
+      }
+      else {
+        message.reply('**There are no songs in the queue.**');
+      }
+    }
+  },
+  'nextpage' : {
+    usage: '',
+    description: 'get next page of songs if desired song not listed',
+    process: function(client, message, query) {
+      findSong(query, plexOffset, plexPageSize, message);
+    }
+  },
+  'play' : {
+    usage: '<song title or artist>',
+    description: 'bot will join voice channel and play song if one song available.  if more than one, bot will return a list to choose from',
+    process: function(client, message, query) {
+      // if song request exists
+      if (query.length > 0) {
+        plexOffset = 0; // reset paging
+        findSong(query, plexOffset, plexPageSize, message);
+      }
+      else {
+        message.reply('**Please enter a song title**');
+      }
+    }
+  },
+  'playsong' : {
+    usage: '<song number>',
+    description: 'play a song from the generated song list',
+    process: function(client, message, query) {
+      var songNumber = query;
+      songNumber = parseInt(songNumber);
+      songNumber = songNumber - 1;
+
+      addToQueue(songNumber, tracks, message);
+    }
+  },
+  'removesong' : {
+    usage: '<song queue number>',
+    description: 'removes song by index from the song queue',
+    process: function(client, message, query) {
+      var songNumber = query;
+      songNumber = parseInt(songNumber);
+      songNumber = songNumber - 1;
+
+      if (songQueue.length > 0 ) {
+        if (songNumber > -1 && songNumber <= songQueue.length) {
+          // remove by index (splice)
+          var removedSong = songQueue.splice(songNumber, 1);
+          message.reply('**You have removed ' + removedSong[0].artist + ' - ' + removedSong[0].title + ' from the queue.**');
+          // message that it has been removed
+        }
+        else {
+          message.reply('**Stop trying to break me.**');
+        }
+      }
+      else {
+        message.reply('**There are no songs in the queue.**');
+      }
+    }
+  },
+  'skip' : {
+    usage: '',
+    description: 'skips the current song if one is playing and plays the next song in queue if it exists',
+    process: function(client, message) {
+      if (isPlaying) {
+        message.channel.send(songQueue[0].artist + ' - ' + songQueue[0].title + ' has been **skipped.**');
+        dispatcher.end();
+        dispatcher.on('end', () => {
+
+          songQueue.shift();
+
+          if (songQueue.length > 0) {
+            // play the next song in queue
+            playSong(message);
+          }
+          else {
+            stopSong(message);
+          }
+        });
+      }
+      else {
+        message.reply('**Nothing currently playing.**');
+      }
+    }
+  },
+  'stop' : {
+    usage: '',
+    description: 'stops song if one is playing',
+    process: function(client, message) {
+      if (isPlaying) {
+        dispatcher.end();
+        dispatcher.on('end', () => {
+          stopSong(message);
+        });
+      }
+      else {
+        message.reply('**Nothing currently playing.**');
+      }
+    }
+  },
+  'viewqueue' : {
+    usage: '',
+    description: 'displays current song queue',
+    process: function(client, message) {
+      var messageLines = '\n**Song Queue:**\n\n';
+
+      if (songQueue.length > 0) {
+        for (var t = 0; t < songQueue.length; t++) {
+          messageLines += (t+1) + ' - ' + songQueue[t].artist + ' - ' + songQueue[t].title + '\n';
+        }
+        messageLines += '\n**Use !clearqueue to remove all songs from the queue**';
+        messageLines += '\n**Use !removesong (number) to remove a song**';
+        messageLines += '\n**Use !skip to skip the current song**';
+        message.reply(messageLines);
+      }
+      else {
+        message.reply('**There are no songs in the queue.**');
+      }
+    }
+  },
+};
 
 module.exports = commands;
