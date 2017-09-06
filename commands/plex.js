@@ -33,6 +33,7 @@ var plexQuery = null;
 var plexOffset = 0; // default offset of 0
 var plexPageSize = 10; // default result size of 10
 var isPlaying = false;
+var isPaused = false;
 var songQueue = []; // will be used for queueing songs
 
 // plex vars for playing audio -----------------------------------------------
@@ -40,15 +41,17 @@ var dispatcher = null;
 var voiceChannel = null;
 var conn = null;
 
-// flow: findSong -> addToQueue -> playSong
+// plex functions ------------------------------------------------------------
 
 // find song when provided with query string, offset, pagesize, and message
-function findSong(plexQuery, offset, pageSize, message) {
-  plex.query('/search/?type=10&query=' + plexQuery + '&X-Plex-Container-Start=' + offset + '&X-Plex-Container-Size=' + pageSize).then(function(res) {
+function findSong(query, offset, pageSize, message) {
+  plex.query('/search/?type=10&query=' + query + '&X-Plex-Container-Start=' + offset + '&X-Plex-Container-Size=' + pageSize).then(function(res) {
     tracks = res.MediaContainer.Metadata;
 
     var resultSize = res.MediaContainer.size;
+    plexQuery = query; // set query for !nextpage
     plexOffset = plexOffset + resultSize; // set paging
+
     var messageLines = '\n';
     var artist = '';
 
@@ -67,8 +70,8 @@ function findSong(plexQuery, offset, pageSize, message) {
         }
         messageLines += (t+1) + ' - ' + artist + ' - ' + tracks[t].title + '\n';
       }
-      messageLines += '\n**Use !playsong (number) to play your song.**';
-      messageLines += '\n**Use !nextpage if the song you want isn\'t listed**';
+      messageLines += '\n***!playsong (number)** to play your song.*';
+      messageLines += '\n***!nextpage** if the song you want isn\'t listed*';
       message.reply(messageLines);
     }
     else {
@@ -94,7 +97,7 @@ function addToQueue(songNumber, tracks, message) {
 
     songQueue.push({'artist' : artist, 'title': title, 'key': key});
     if (songQueue.length > 1) {
-      message.reply('**' + artist + ' - ' + title + ' has been added to the queue.**\n\n**Use !viewqueue to view the queue.**');
+      message.reply('You have added **' + artist + ' - ' + title + '** to the queue.\n\n***!viewqueue** to view the queue.*');
     }
 
     if (!isPlaying) {
@@ -123,31 +126,53 @@ function playSong(message) {
         if (songQueue.length > 0) {
           playSong(message);
         }
+        // no songs left in queue, continue with playback completetion events
         else {
-          stopSong(message);
+          playbackCompletion(message);
         }
       });
       dispatcher.setVolume(0.2);
     });
 
     // probbaly just change this to channel alert, not reply
-    message.channel.send('**♪ ♫ ♪ Playing: ' + songQueue[0].artist + ' - ' + songQueue[0].title + ' ♪ ♫ ♪**');
+    var embedObj = {
+      embed: {
+        color: 4251856,
+        fields:
+        [
+          {
+            name: 'Artist',
+            value: songQueue[0].artist,
+            inline: true
+          },
+          {
+            name: 'Title',
+            value: songQueue[0].title,
+            inline: true
+          }
+        ],
+        footer: {
+          text: songQueue.length + ' song(s) in the queue'
+        },
+      }
+    };
+    message.channel.send('**Now playing:**\n', embedObj);
+    //message.channel.send('**♪ ♫ ♪ Playing: ' + songQueue[0].artist + ' - ' + songQueue[0].title + ' ♪ ♫ ♪**');
   }
   else {
     message.reply('**Please join a voice channel first before requesting a song.**')
   }
 }
 
-// stop a song from playing
-function stopSong(message) {
+// run at end of songQueue / remove bot from voiceChannel
+function playbackCompletion(message) {
   conn.disconnect();
   voiceChannel.leave();
   isPlaying = false;
-  message.reply('**All playback has been stopped.**');
 }
 
 
-// plex commands ---------------------------------------------------------------
+// plex commands -------------------------------------------------------------
 var commands = {
   'plexTest' : {
     usage: '',
@@ -166,10 +191,9 @@ var commands = {
     description: 'clears all songs in queue',
     process: function(client, message) {
       if (songQueue.length > 0) {
-        songQueue = [];
+        songQueue = []; // remove all songs from queue
 
         message.reply('**The queue has been cleared.**');
-        stopSong(message);
       }
       else {
         message.reply('**There are no songs in the queue.**');
@@ -180,7 +204,27 @@ var commands = {
     usage: '',
     description: 'get next page of songs if desired song not listed',
     process: function(client, message, query) {
-      findSong(query, plexOffset, plexPageSize, message);
+      findSong(plexQuery, plexOffset, plexPageSize, message);
+    }
+  },
+  'pause' : {
+    usage: '',
+    description: 'pauses current song if one is playing',
+    process: function(client, message) {
+      if (isPlaying) {
+        dispatcher.pause(); // pause song
+        isPaused = true;
+        var embedObj = {
+          embed: {
+            color: 16424969,
+            description: '**Playback has been paused.**',
+          }
+        };
+        message.channel.send('**Update:**', embedObj);
+      }
+      else {
+        message.reply('**Nothing currently playing.**');
+      }
     }
   },
   'play' : {
@@ -190,6 +234,8 @@ var commands = {
       // if song request exists
       if (query.length > 0) {
         plexOffset = 0; // reset paging
+        plexQuery = null; // reset query for !nextpage
+
         findSong(query, plexOffset, plexPageSize, message);
       }
       else {
@@ -232,25 +278,33 @@ var commands = {
       }
     }
   },
+  'resume' : {
+    usage: '',
+    description: 'skips the current song if one is playing and plays the next song in queue if it exists',
+    process: function(client, message) {
+      if (isPaused) {
+
+        dispatcher.resume(); // run dispatcher.end events in playSong
+        var embedObj = {
+          embed: {
+            color: 4251856,
+            description: '**Playback has been resumed.**',
+          }
+        };
+        message.channel.send('**Update:**', embedObj);
+      }
+      else {
+        message.reply('**Nothing is paused.**');
+      }
+    }
+  },
   'skip' : {
     usage: '',
     description: 'skips the current song if one is playing and plays the next song in queue if it exists',
     process: function(client, message) {
       if (isPlaying) {
         message.channel.send(songQueue[0].artist + ' - ' + songQueue[0].title + ' has been **skipped.**');
-        dispatcher.end();
-        dispatcher.on('end', () => {
-
-          songQueue.shift();
-
-          if (songQueue.length > 0) {
-            // play the next song in queue
-            playSong(message);
-          }
-          else {
-            stopSong(message);
-          }
-        });
+        dispatcher.end(); // run dispatcher.end events in playSong
       }
       else {
         message.reply('**Nothing currently playing.**');
@@ -262,10 +316,16 @@ var commands = {
     description: 'stops song if one is playing',
     process: function(client, message) {
       if (isPlaying) {
-        dispatcher.end();
-        dispatcher.on('end', () => {
-          stopSong(message);
-        });
+        songQueue = []; // removes all songs from queue
+        dispatcher.end(); // stop dispatcher from playing audio
+
+        var embedObj = {
+          embed: {
+            color: 10813448,
+            description: '**Playback has been stopped.**',
+          }
+        };
+        message.channel.send('**Update:**', embedObj);
       }
       else {
         message.reply('**Nothing currently playing.**');
@@ -276,16 +336,26 @@ var commands = {
     usage: '',
     description: 'displays current song queue',
     process: function(client, message) {
-      var messageLines = '\n**Song Queue:**\n\n';
+      //var messageLines = '\n**Song Queue:**\n\n';
+
+      var messageLines = '';
 
       if (songQueue.length > 0) {
         for (var t = 0; t < songQueue.length; t++) {
           messageLines += (t+1) + ' - ' + songQueue[t].artist + ' - ' + songQueue[t].title + '\n';
         }
-        messageLines += '\n**Use !clearqueue to remove all songs from the queue**';
-        messageLines += '\n**Use !removesong (number) to remove a song**';
-        messageLines += '\n**Use !skip to skip the current song**';
-        message.reply(messageLines);
+
+        messageLines += '\n***!removesong (number)** to remove a song*';
+        messageLines += '\n***!skip** to skip the current song*';
+
+        var embedObj = {
+          embed: {
+            color: 2389639,
+            description: messageLines,
+          }
+        };
+
+        message.channel.send('\n**Song Queue:**\n\n', embedObj);
       }
       else {
         message.reply('**There are no songs in the queue.**');
