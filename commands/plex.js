@@ -24,7 +24,7 @@ var plex = new PlexAPI({
 });
 
 // plex constants ------------------------------------------------------------
-const PLEX_PLAY_START = 'http://' + plexConfig.hostname + ':32400';
+const PLEX_PLAY_START = 'http://' + plexConfig.hostname + plexConfig.port;
 const PLEX_PLAY_END = '?X-Plex-Token=' + plexConfig.token;
 
 // plex variables ------------------------------------------------------------
