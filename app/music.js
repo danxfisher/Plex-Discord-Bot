@@ -7,7 +7,7 @@ module.exports = function(client) {
     console.log('bot ready');
     console.log('logged in as: ' + client.user.tag);
 
-    plexCommands['test'].process();
+    plexCommands['plexTest'].process();
   });
 
   // when message is sent to discord
@@ -29,7 +29,7 @@ module.exports = function(client) {
       else {
         message.reply('**Sorry, that\'s not a command.**');
       }
-      
+
     }
   });
 };
