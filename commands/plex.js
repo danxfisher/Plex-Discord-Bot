@@ -10,6 +10,7 @@ var plexCommands = require('../commands/plex');
 // plex client ---------------------------------------------------------------
 var plex = new PlexAPI({
   hostname: plexConfig.hostname,
+  port: plexConfig.port,
   username: plexConfig.username,
   password: plexConfig.password,
   token: plexConfig.token,
